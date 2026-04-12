@@ -8,7 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from googletrans import Translator
 
 # 1. SOZLAMALAR
-TOKEN = "8465477732:AAHqliagKX_ollpMOUtIxurgebU04cXPi6Q" # <--- YANGI TOKENNI SHU YERGA QO'YING
+TOKEN = "8671591234:AAHjv_nSjBrXRW9oFvnj9ady_6lUdL__Jzo" # <--- YANGI TOKENNI SHU YERGA QO'YING
 ADMIN_ID = 8665041091
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
