@@ -3,18 +3,17 @@ import asyncio
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from googletrans import Translator
 
 # 1. SOZLAMALAR
-TOKEN = "8671591234:AAHjv_nSjBrXRW9oFvnj9ady_6lUdL__Jzo" # <--- YANGI TOKENNI SHU YERGA QO'YING
+TOKEN = "8671591234:AAHjv_nSjBrXRW9oFvnj9ady_6lUdL__Jzo"
 ADMIN_ID = 8665041091
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 translator = Translator()
 
-# Fayl yo'lini aniqlash
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "users.txt")
 
@@ -28,21 +27,53 @@ def add_user(user_id):
         with open(DB_FILE, "a") as f:
             f.write(f"{user_id}\n")
 
-# Render uchun soxta port
+# Asosiy menyu tugmalari
+main_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="❓ Yordam")],
+        [KeyboardButton(text="📊 Statistika (Admin)")]
+    ],
+    resize_keyboard=True
+)
+
 async def handle(request):
     return web.Response(text="Perfect Translator is Live!")
 
-# 2. START VA ADMIN
+# 2. KOMANDALAR
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     add_user(message.from_user.id)
     await message.answer(
         f"👋 Salom {message.from_user.full_name}!\n\n"
         "🌐 **Mukammal Tarjimon Botga xush kelibsiz.**\n"
-        "Menga istalgan tilda matn yuboring, men uni siz tanlagan tilga tarjima qilaman!",
+        "Menga matn yuboring yoki menyudan foydalaning!",
+        reply_markup=main_menu,
         parse_mode="Markdown"
     )
 
+@dp.message(F.text == "❓ Yordam")
+@dp.message(Command("help"))
+async def help_cmd(message: types.Message):
+    help_text = (
+        "📖 **Botdan foydalanish bo'yicha qo'llanma:**\n\n"
+        "1. Botga istalgan tilda matn yuboring.\n"
+        "2. Kelib chiqqan tugmalardan tarjima qilinishi kerak bo'lgan tilni tanlang.\n"
+        "3. Bot sizga bir necha soniyada tarjimani yuboradi.\n\n"
+        "Muammo yuzaga kelsa: @admin_username ga yozing."
+    )
+    await message.answer(help_text, parse_mode="Markdown")
+
+@dp.message(F.text == "⚙️ Sozlamalar")
+@dp.message(Command("settings"))
+async def settings_cmd(message: types.Message):
+    await message.answer(
+        "⚙️ **Sozlamalar bo'limi:**\n\n"
+        "Hozircha bot avtomatik rejimda ishlamoqda.\n"
+        "Yaqin orada bu yerga yangi funksiyalar qo'shiladi!",
+        parse_mode="Markdown"
+    )
+
+@dp.message(F.text == "📊 Statistika (Admin)")
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
     if message.from_user.id == ADMIN_ID:
@@ -50,62 +81,49 @@ async def admin_panel(message: types.Message):
             count = len(f.readlines())
         await message.answer(f"📊 **Statistika:**\n\n👤 Foydalanuvchilar: {count} ta")
     else:
-        await message.answer(f"❌ Admin emassiz! ID: `{message.from_user.id}`")
+        await message.answer(f"❌ Bu bo'lim faqat admin uchun!")
 
-# 3. TARJIMA QISMI (TUGMALAR BILAN)
+# 3. TARJIMA QISMI
 @dp.message(F.text & ~F.text.startswith("/"))
 async def handle_text(message: types.Message):
+    # Agar foydalanuvchi menyu tugmalarini bosmagan bo'lsa tarjima qiladi
+    if message.text in ["⚙️ Sozlamalar", "❓ Yordam", "📊 Statistika (Admin)"]:
+        return
+
     add_user(message.from_user.id)
-    
-    # Tilni tanlash uchun tugmalar
     builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="🇺🇿 O'zbek", callback_data=f"tr|uz|{message.message_id}"),
-        InlineKeyboardButton(text="🇷🇺 Rus", callback_data=f"tr|ru|{message.message_id}")
-    )
-    builder.row(
-        InlineKeyboardButton(text="🇺🇸 Ingliz", callback_data=f"tr|en|{message.message_id}"),
-        InlineKeyboardButton(text="🇹🇷 Turk", callback_data=f"tr|tr|{message.message_id}")
-    )
-    builder.row(
-        InlineKeyboardButton(text="🇰🇷 Koreys", callback_data=f"tr|ko|{message.message_id}"),
-        InlineKeyboardButton(text="🇯🇵 Yapon", callback_data=f"tr|ja|{message.message_id}")
-    )
-    builder.row(
-        InlineKeyboardButton(text="🇩🇪 Nemis", callback_data=f"tr|de|{message.message_id}"),
-        InlineKeyboardButton(text="🇫🇷 Fransuz", callback_data=f"tr|fr|{message.message_id}")
-    )
+    languages = [
+        ("🇺🇿 O'zbek", "uz"), ("🇷🇺 Rus", "ru"),
+        ("🇺🇸 Ingliz", "en"), ("🇹🇷 Turk", "tr"),
+        ("🇰🇷 Koreys", "ko"), ("🇯🇵 Yapon", "ja"),
+        ("🇩🇪 Nemis", "de"), ("🇫🇷 Fransuz", "fr")
+    ]
+    for text, lang in languages:
+        builder.add(InlineKeyboardButton(text=text, callback_data=f"tr|{lang}"))
+    builder.adjust(2)
     
     await message.reply("🌐 Qaysi tilga tarjima qilamiz?", reply_markup=builder.as_markup())
 
 @dp.callback_query(F.data.startswith("tr|"))
 async def process_translation(call: types.CallbackQuery):
-    _, lang, _ = call.data.split("|")
+    _, lang = call.data.split("|")
     original_message = call.message.reply_to_message
     
     if not original_message:
-        await call.message.edit_text("❌ Asl matn topilmadi. Iltimos, matnni qayta yuboring.")
+        await call.message.edit_text("❌ Asl matn topilmadi.")
         return
 
     status_msg = await call.message.edit_text("⏳ Tarjima qilinmoqda...")
 
     try:
         translated = translator.translate(original_message.text, dest=lang)
-        
-        # Bayroqlarni aniqlash
         flags = {"uz":"🇺🇿", "ru":"🇷🇺", "en":"🇺🇸", "tr":"🇹🇷", "ko":"🇰🇷", "ja":"🇯🇵", "de":"🇩🇪", "fr":"🇫🇷"}
         flag = flags.get(lang, "📝")
-
-        res_text = (
-            f"{flag} **Natija ({lang}):**\n\n"
-            f"`{translated.text}`"
-        )
-        await call.message.edit_text(res_text, parse_mode="Markdown")
+        await call.message.edit_text(f"{flag} **Natija:**\n\n`{translated.text}`", parse_mode="Markdown")
     except Exception as e:
-        await call.message.edit_text(f"❌ Xatolik: {str(e)}")
+        await call.message.edit_text(f"❌ Xatolik yuz berdi.")
     await call.answer()
 
-# 4. ISHGA TUSHIRISH
 async def main():
     app = web.Application()
     app.router.add_get("/", handle)
@@ -114,8 +132,6 @@ async def main():
     port = int(os.getenv("PORT", 10000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    
-    print("Mukammal Tarjimon ishga tushdi...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
