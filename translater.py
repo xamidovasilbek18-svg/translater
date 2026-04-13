@@ -28,12 +28,12 @@ LANGUAGES = {
 }
 
 TEXTS = {
-    "uz": {"welcome": "Salom! Bot tilini tanlang:", "settings": "Sozlamalar", "help": "Yordam", "stat": "Statistika", "select": "Tilni tanlang 👇", "help_text": "Matn yuboring va tilni tanlang. Bot avtomatik tarjima qiladi."},
-    "ru": {"welcome": "Привет! Выберите язык бота:", "settings": "Настройки", "help": "Помощь", "stat": "Статистика", "select": "Выберите язык 👇", "help_text": "Отправьте текст и выберите язык. Бот переведет автоматически."},
-    "en": {"welcome": "Hello! Choose bot language:", "settings": "Settings", "help": "Help", "stat": "Stats", "select": "Select language 👇", "help_text": "Send text and choose language. The bot will translate automatically."},
-    "tr": {"welcome": "Merhaba! Bot dilini seçin:", "settings": "Ayarlar", "help": "Yardım", "stat": "İstatistik", "select": "Dil seçin 👇", "help_text": "Metni gönderin ve dili seçin. Bot otomatik olarak çevirecektir."},
-    "ko": {"welcome": "안녕하세요! 봇 언어를 선택하세요:", "settings": "설정", "help": "도움말", "stat": "통계", "select": "언어 선택 👇", "help_text": "텍스트를 보내고 언어를 선택하십시오. 봇이 자동으로 번역합니다."},
-    "ja": {"welcome": "こんにちは！ボットの言語を選択してください:", "settings": "設定", "help": "ヘルプ", "stat": "統計", "select": "言語を選択 👇", "help_text": "テキストを送信して言語を選択します。ボットは自動的に翻訳します。"}
+    "uz": {"settings": "Sozlamalar", "help": "Yordam", "stat": "Statistika", "select": "Tilni tanlang 👇", "help_text": "Matn yuboring va tilni tanlang. Bot avtomatik tarjima qiladi."},
+    "ru": {"settings": "Настройки", "help": "Помощь", "stat": "Статистика", "select": "Выберите язык 👇", "help_text": "Отправьте текст и выберите язык. Бот переведет автоматически."},
+    "en": {"settings": "Settings", "help": "Help", "stat": "Stats", "select": "Select language 👇", "help_text": "Send text and choose language. The bot will translate automatically."},
+    "tr": {"settings": "Ayarlar", "help": "Yardım", "stat": "İstatistik", "select": "Dil seçin 👇", "help_text": "Metni gönderin ve dili seçin. Bot otomatik olarak çevirecektir."},
+    "ko": {"settings": "설정", "help": "도움말", "stat": "통계", "select": "언어 선택 👇", "help_text": "텍스트를 보내고 언어를 선택하십시오. 봇이 자동으로 번역합니다."},
+    "ja": {"settings": "設定", "help": "ヘルプ", "stat": "統計", "select": "言語を選択 👇", "help_text": "テキストを送信して言語を選択します。ボットは自動的に翻訳します。"}
 }
 
 # DB Funksiyalari
@@ -48,11 +48,13 @@ def add_user(user_id):
 
 def get_user_lang(user_id):
     if not os.path.exists(LANG_FILE): return "uz"
-    with open(LANG_FILE, "r") as f:
-        for line in f:
-            if "|" in line:
-                uid, lang = line.strip().split("|")
-                if uid == str(user_id): return lang
+    try:
+        with open(LANG_FILE, "r") as f:
+            for line in f:
+                if "|" in line:
+                    uid, lang = line.strip().split("|")
+                    if uid == str(user_id): return lang
+    except: pass
     return "uz"
 
 def set_user_lang(user_id, lang):
@@ -97,30 +99,36 @@ async def set_lang_callback(call: types.CallbackQuery):
     set_user_lang(call.from_user.id, lang)
     await call.message.delete()
     await call.message.answer(f"✅ {LANGUAGES[lang]}", reply_markup=get_main_menu(lang))
+    await call.answer()
 
-# Tugmalarni aniqlash uchun filterlar
-@dp.message(F.text.contains("Sozlamalar") | F.text.contains("Settings") | F.text.contains("Настройки") | F.text.contains("Ayarlar") | F.text.contains("설정") | F.text.contains("設定"))
-async def settings_handler(message: types.Message):
-    lang = get_user_lang(message.from_user.id)
-    await message.answer(TEXTS[lang]["select"], reply_markup=get_lang_inline())
+# Admin Handler (Emoji orqali aniqlash)
+@dp.message(F.text.contains("📊"))
+async def admin_handler(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        if os.path.exists(DB_FILE):
+            with open(DB_FILE, "r") as f:
+                count = len(f.read().splitlines())
+            await message.answer(f"📊 Jami foydalanuvchilar: {count}")
+        else:
+            await message.answer("📊 Statistika: 0")
+    else:
+        await message.answer(f"❌ Faqat admin uchun! (Sizning ID: {message.from_user.id})")
 
-@dp.message(F.text.contains("Yordam") | F.text.contains("Help") | F.text.contains("Помощь") | F.text.contains("Yardım") | F.text.contains("도움말") | F.text.contains("ヘルプ"))
+# Yordam Handler
+@dp.message(F.text.contains("❓"))
 async def help_handler(message: types.Message):
     lang = get_user_lang(message.from_user.id)
     await message.answer(TEXTS[lang]["help_text"])
 
-@dp.message(F.text.contains("Statistika") | F.text.contains("Stats") | F.text.contains("İstatistik") | F.text.contains("통계") | F.text.contains("統計"))
-async def admin_handler(message: types.Message):
-    if message.from_user.id == ADMIN_ID:
-        with open(DB_FILE, "r") as f:
-            count = len(f.read().splitlines())
-        await message.answer(f"📊 Jami foydalanuvchilar: {count}")
-    else:
-        await message.answer("❌ Admin emas!")
+# Sozlamalar Handler
+@dp.message(F.text.contains("⚙️"))
+async def settings_handler(message: types.Message):
+    lang = get_user_lang(message.from_user.id)
+    await message.answer(TEXTS[lang]["select"], reply_markup=get_lang_inline())
 
+# Tarjima Handler
 @dp.message(F.text & ~F.text.startswith("/"))
 async def translation_handler(message: types.Message):
-    # Agar bu menyu tugmasi bo'lsa, tarjima qilma
     if any(x in message.text for x in ["⚙️", "❓", "📊"]): return
     
     user_lang = get_user_lang(message.from_user.id)
@@ -142,17 +150,19 @@ async def process_tr(call: types.CallbackQuery):
         tr = translator.translate(original.text, dest=lang)
         await call.message.edit_text(f"✅ ({LANGUAGES[lang]}):\n\n{tr.text}")
     except:
-        await call.message.edit_text("❌ Tarjima qilishda xatolik.")
+        await call.message.edit_text("❌ Xatolik yuz berdi.")
+    await call.answer()
 
-# 3. RUNNER
-async def handle_web(request): return web.Response(text="Bot is Online")
+# 3. RUNNER (Render uchun)
+async def handle_web(request): return web.Response(text="Bot Active")
 
 async def main():
     app = web.Application()
     app.router.add_get("/", handle_web)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', int(os.getenv("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
     await dp.start_polling(bot)
 
