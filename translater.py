@@ -65,7 +65,7 @@ async def help_cmd(message: types.Message):
         "1. Botga istalgan tilda matn yuboring.\n"
         "2. Kelib chiqqan tugmalardan tilni tanlang.\n"
         "3. Bot sizga tarjimani yuboradi.\n\n"
-        "Muammo bo'lsa: @Asilbek_Hamidov"
+        "Muammo bo'lsa: @asilbekhamidov0930"
     )
     await message.answer(help_text) # Xatolik bermasligi uchun Markdown olib tashlandi
 
